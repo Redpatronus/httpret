@@ -1,0 +1,14 @@
+{
+    "listen": "0.0.0.0:8080",
+    "virustotal": {
+        "enabled": true,
+        "apikey": ""
+    },
+    "ipinfo": {
+        "enabled": true
+    },
+    "browser": {
+        "enabled": true
+    }
+}
+

@@ -1,0 +1,8 @@
+export HTTPRET_URL=https://ip.burso.eu
+
+alias httpret="curl $HTTPRET_URL 2>/dev/null | jq"
+alias httpret-ip="curl $HTTPRET_URL 2>/dev/null | jq .Data.RemoteAddr"
+alias httpret-browser="curl $HTTPRET_URL 2>/dev/null | jq .Data.Browser.Data"
+alias httpret-ipinfo="curl $HTTPRET_URL 2>/dev/null | jq .Data.IpInfo.Data"
+alias httpret-anlstat="curl $HTTPRET_URL 2>/dev/null | jq .Data.Vt.Attributes.Last_Analysis_Stats"
+alias httpret-anlres=curl $HTTPRET_URL 2>/dev/null | jq ".Data.Vt.Attributes.Last_Analysis_Results" 
