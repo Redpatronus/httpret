@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,8 +21,12 @@ type Data struct {
 }
 
 type HttpSt struct {
-	Data  *Data `json: data`
-	Error error `json: error`
+	Data  *Data  `json: data`
+	Error string `json: error`
+}
+
+func isIpv4(host string) bool {
+	return net.ParseIP(host) != nil
 }
 
 func RemoteAddrSplit(w http.ResponseWriter, r *http.Request) (string, int64, error) {
@@ -33,48 +38,69 @@ func RemoteAddrSplit(w http.ResponseWriter, r *http.Request) (string, int64, err
 
 func (s *Svc) HttpRet(w http.ResponseWriter, r *http.Request) {
 	log.Println("ra:[" + r.Header.Get("Forwarded") + "] ua:[" + r.UserAgent() + "] m:[" + r.Method + "]")
+	w.Header().Add("Content-Type", "application/json")
 
-	var remoteAddr string
-	keys, ok := r.URL.Query()["ip"]
-	if !ok || len(keys[0]) < 1 {
-		// remoteAddr, _, _ = RemoteAddrSplit(w, r)
-		remoteAddr = r.Header.Get("Forwarded")
-	} else {
-		remoteAddr = keys[0]
-	}
-
-	var ii *IpInfo
-	var vt *Vt
-	var br *Browser
-
-	if s.IpInfo.Enabled == true {
-		ii = s.GetIPInfo(remoteAddr)
-	}
-
-	if s.VirusTotal.Enabled == true {
-		vt = s.GetVtIp(remoteAddr)
-	}
-
-	if s.Browser.Enabled == true {
-		br = s.GetBrowserDetails(r)
-	}
-
-	as := GetAsn(remoteAddr)
+	var all bool
 
 	htst := &HttpSt{
 		Data: &Data{
-			RemoteAddr: remoteAddr,
+			RemoteAddr: "",
 			// Port:             port,
 			Proto:   r.Proto,
-			Asn:     as,
-			IpInfo:  ii,
-			Vt:      vt,
-			Browser: br,
+			Asn:     nil,
+			IpInfo:  nil,
+			Vt:      nil,
+			Browser: nil,
 		},
-		Error: nil,
+		Error: "",
+	}
+
+	keys, ok := r.URL.Query()["ip"]
+	if !ok || len(keys[0]) < 1 {
+		// remoteAddr, _, _ = RemoteAddrSplit(w, r)
+		htst.Data.RemoteAddr = r.Header.Get("Forwarded")
+	} else {
+		htst.Data.RemoteAddr = keys[0]
+	}
+
+	keys, ok = r.URL.Query()["all"]
+	if !ok || len(keys[0]) < 1 {
+		// remoteAddr, _, _ = RemoteAddrSplit(w, r)
+		all = false
+	} else {
+		var err error
+		all, err = strconv.ParseBool(keys[0])
+		if err != nil {
+			htst.Error = "Could not parse GET['all'] parameter"
+			res, _ := json.Marshal(htst)
+			fmt.Fprintf(w, "%s\n", string(res))
+			return
+		}
+	}
+
+	if !isIpv4(htst.Data.RemoteAddr) {
+		htst.Error = "Could not parse IP from request"
+		res, _ := json.Marshal(htst)
+		fmt.Fprintf(w, "%s\n", string(res))
+		return
+	}
+
+	if s.IpInfo.Enabled == true {
+		htst.Data.IpInfo = s.GetIPInfo(htst.Data.RemoteAddr)
+	}
+
+	if all {
+		if s.VirusTotal.Enabled == true {
+			htst.Data.Vt = s.GetVtIp(htst.Data.RemoteAddr)
+		}
+
+		if s.Browser.Enabled == true {
+			htst.Data.Browser = s.GetBrowserDetails(r)
+		}
+
+		htst.Data.Asn = GetAsn(htst.Data.RemoteAddr)
 	}
 
 	res, _ := json.Marshal(htst)
-	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s\n", string(res))
 }
