@@ -2,9 +2,12 @@ package service
 
 import (
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/ammario/ipisp"
+	sentry "github.com/getsentry/sentry-go"
+	echo "github.com/labstack/echo/v4"
 )
 
 type AsnData struct {
@@ -20,7 +23,7 @@ type Asn struct {
 	Error error    `json: error`
 }
 
-func GetAsn(remoteAddr string) *Asn {
+func getAsn(remoteAddr string) *Asn {
 	client, err := ipisp.NewDNSClient()
 	if err != nil {
 		return &Asn{
@@ -48,4 +51,25 @@ func GetAsn(remoteAddr string) *Asn {
 		},
 		Error: nil,
 	}
+}
+
+/*
+GetAsnDetails (echo.Context)
+-> app.GET("/api/v1/asn", svc.GetAsnDetails())
+*/
+func (s *Svc) GetAsnDetails(c echo.Context) error {
+	remoteAddr := c.QueryParam("ip")
+	if remoteAddr == "" {
+		remoteAddr = c.Request().Header.Get("Forwarded")
+	}
+
+	asn := getAsn(remoteAddr)
+	if asn.Error != nil {
+		sentry.CaptureException(asn.Error)
+		sentry.Flush(time.Second * 5)
+
+		return c.JSON(http.StatusInternalServerError, asn)
+	}
+
+	return c.JSON(http.StatusOK, asn)
 }

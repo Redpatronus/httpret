@@ -2,9 +2,8 @@ package main
 
 import (
 	"flag"
-	"log"
-	"net/http"
 
+	"github.com/redpatronus/httpret/run"
 	"github.com/redpatronus/httpret/utils"
 )
 
@@ -14,8 +13,5 @@ func main() {
 	flag.Parse()
 
 	s := utils.ParseConfig(config)
-
-	log.Println("Starting HTTP listener: " + s.Listen)
-	http.HandleFunc("/", s.HttpRet)
-	http.ListenAndServe(s.Listen, nil)
+	run.HttpServiceStart(s)
 }

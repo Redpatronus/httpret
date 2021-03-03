@@ -15,7 +15,9 @@ func ParseConfig(filepath string) *service.Svc {
 		Browser:    &service.SvcBr{},
 		VirusTotal: &service.SvcVt{},
 		IpInfo:     &service.SvcIi{},
+		Sentry:     &service.SvcSt{},
 	}
+
 	// Open our jsonFile
 	jsonFile, err := os.Open(filepath)
 	// if we os.Open returns an error then handle it

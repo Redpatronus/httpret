@@ -3,8 +3,12 @@ package service
 import (
 	"encoding/json"
 	"log"
+	"net/http"
+	"time"
 
 	vt "github.com/VirusTotal/vt-go"
+	sentry "github.com/getsentry/sentry-go"
+	echo "github.com/labstack/echo/v4"
 )
 
 type VtLastAnalysisResult struct {
@@ -40,8 +44,8 @@ type Vt struct {
 	Attributes VtAttributes `json: attributes`
 }
 
-func (s *Svc) GetVtIp(remoteAddr string) *Vt {
-	client := vt.NewClient(s.VirusTotal.Apikey)
+func getVtIp(remoteAddr string, apiKey string) *Vt {
+	client := vt.NewClient(apiKey)
 	ret := &Vt{}
 
 	url, err := client.GetObject(vt.URL("ip_addresses/%s", remoteAddr))
@@ -60,4 +64,25 @@ func (s *Svc) GetVtIp(remoteAddr string) *Vt {
 	}
 
 	return ret
+}
+
+/*
+GetVirusTotalDetails (echo.Context)
+-> app.GET("/api/v1/virustotal", svc.GetVirusTotalDetails)
+*/
+func (s *Svc) GetVirusTotalDetails(c echo.Context) error {
+	remoteAddr := c.QueryParam("ip")
+	if remoteAddr == "" {
+		remoteAddr = c.Request().Header.Get("Forwarded")
+	}
+
+	vt := getIpInfo(remoteAddr, s.VirusTotal.ApiKey)
+	if vt.Error != nil {
+		sentry.CaptureException(vt.Error)
+		sentry.Flush(time.Second * 5)
+
+		return c.JSON(http.StatusInternalServerError, vt)
+	}
+
+	return c.JSON(http.StatusOK, vt)
 }
